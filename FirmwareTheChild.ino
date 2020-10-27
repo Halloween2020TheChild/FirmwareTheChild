@@ -8,20 +8,17 @@
 #include "wifi/WifiManager.h"
 #include "WebPage.h"
 #include <Timer.h>
-
+#include <lx16a-servo.h>
+LX16ABus servoBus;
+LX16AServo servo(&servoBus, 1);
+LX16AServo servo2(&servoBus, 2);
+LX16AServo servo3(&servoBus, 3);
 
 
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classMotor.html
 Motor left_motor;
 Motor right_motor;
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classRangefinder.html
-Rangefinder rangefinder1;
-// https://wpiroboticsengineering.github.io/RBE1001Lib/classServo.html
-Servo lifter;
-// https://wpiroboticsengineering.github.io/RBE1001Lib/classESP32AnalogRead.html
-ESP32AnalogRead leftLineSensor;
-ESP32AnalogRead rightLineSensor;
-ESP32AnalogRead servoPositionFeedback;
 
 WebPage control_page;
 
@@ -39,7 +36,17 @@ Timer dashboardUpdateTimer;  // times when the dashboard should update
  */
 int inc=0;
 void setup() {
-	manager.setup();
+	servoBus.begin(&Serial2, 17, // on TX pin 10
+			19); // use pin 2 as the TX flag for buffer
+	Serial.begin(115200);
+	servoBus.retry = 1; // enforce synchronous real time
+	//servoBus.debug(true);
+	Serial.println("Beginning Coordinated Servo Example");
+	servo.disable();
+	servo2.disable();
+	servo3.disable();
+
+	manager.setupAP();
 	while (manager.getState() != Connected) {
 		manager.loop();
 		delay(1);
@@ -50,14 +57,17 @@ void setup() {
 	// pin definitions https://wpiroboticsengineering.github.io/RBE1001Lib/RBE1001Lib_8h.html#define-members
 	right_motor.attach(MOTOR_RIGHT_PWM, MOTOR_RIGHT_DIR, MOTOR_RIGHT_ENCA, MOTOR_RIGHT_ENCB);
 	left_motor.attach(MOTOR_LEFT_PWM, MOTOR_LEFT_DIR, MOTOR_LEFT_ENCA, MOTOR_LEFT_ENCB);
-	rangefinder1.attach(SIDE_ULTRASONIC_TRIG, SIDE_ULTRASONIC_ECHO);
-	lifter.attach(SERVO_PIN);
-	leftLineSensor.attach(LEFT_LINE_SENSE);
-	rightLineSensor.attach(RIGHT_LINE_SENSE);
-	servoPositionFeedback.attach(SERVO_FEEDBACK_SENSOR);
-	lifter.write(0);
-	dashboardUpdateTimer.reset(); // reset the dashbaord refresh timer
 
+	dashboardUpdateTimer.reset(); // reset the dashbaord refresh timer
+	Serial.println("servo.readLimits()");
+	servo.calibrate(0, -4500, 4500);
+	Serial.println("servo2.readLimits()");
+	servo2.calibrate(0, -1000, 4500);
+	Serial.println("servo3.readLimits()");
+	servo3.calibrate(0, -1000, 4000);
+	servo2.move_time_and_wait_for_sync(0, 0);
+	servo3.move_time_and_wait_for_sync(0, 0);
+	servo.move_time_and_wait_for_sync(0, 0);
 
 
 }
@@ -72,12 +82,16 @@ void setup() {
  */
 void runStateMachine() {
 
-	float left = (control_page.getJoystickX()+control_page.getJoystickY())*360;
-	float right = (control_page.getJoystickX()-control_page.getJoystickY())*360;
+	float left = (control_page.getJoystickX()-control_page.getJoystickY())*160;
+	float right = (control_page.getJoystickX()+control_page.getJoystickY())*160;
 
 	left_motor.setSpeed(left);
 	right_motor.setSpeed(right);
-	lifter.write(control_page.getSliderValue(0)*180);
+
+	//servo2.move_time_and_wait_for_sync(angle, 0);
+	servo3.move_time_and_wait_for_sync((control_page.getSliderValue(0)*5500)-1000, 0);
+	//servo.move_time_and_wait_for_sync(angle, 0);
+	servoBus.move_sync_start();
 }
 
 /*
@@ -91,11 +105,7 @@ uint32_t packet_old=0;
 void updateDashboard() {
 	// This writes values to the dashboard area at the bottom of the web page
 	if (dashboardUpdateTimer.getMS() > 100) {
-		control_page.setValue("Left linetracker", leftLineSensor.readMiliVolts());
-		control_page.setValue("Right linetracker",
-				rightLineSensor.readMiliVolts());
-		control_page.setValue("Ultrasonic",
-				rangefinder1.getDistanceCM());
+
 		control_page.setValue("packets from Web to ESP",
 						control_page.rxPacketCount);
 		control_page.setValue("packets to Web from ESP",
