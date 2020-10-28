@@ -27,6 +27,19 @@ WifiManager manager;
 
 
 Timer dashboardUpdateTimer;  // times when the dashboard should update
+
+float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
+	if(x>in_max)
+		return out_max;
+	if(x<in_min)
+		return out_min;
+
+	float divisor = (in_max - in_min);
+    if(divisor == 0){
+        return -1; //AVR returns -1, SAM returns 0
+    }
+    return (x - in_min) * (out_max - out_min) / divisor + out_min;
+}
 /*
  * This is the standard setup function that is called when the ESP32 is rebooted
  * It is used to initialize anything that needs to be done once.
@@ -35,6 +48,7 @@ Timer dashboardUpdateTimer;  // times when the dashboard should update
  * the robot should start in
  */
 int inc=0;
+
 void setup() {
 	servoBus.begin(&Serial2, 17, // on TX pin 10
 			19); // use pin 2 as the TX flag for buffer
@@ -46,7 +60,7 @@ void setup() {
 	servo2.disable();
 	servo3.disable();
 
-	manager.setupAP();
+	manager.setup();
 	while (manager.getState() != Connected) {
 		manager.loop();
 		delay(1);
@@ -82,16 +96,31 @@ void setup() {
  */
 void runStateMachine() {
 
-	float left = (control_page.getJoystickX()-control_page.getJoystickY())*160;
-	float right = (control_page.getJoystickX()+control_page.getJoystickY())*160;
+	int sliderMode = (int)(control_page.getSliderValue(0)*3.0);
 
-	left_motor.setSpeed(left);
-	right_motor.setSpeed(right);
+	switch(sliderMode){
+	case 0:
+		left_motor.setSpeed((control_page.getJoystickX()-control_page.getJoystickY())*160);
+		right_motor.setSpeed((control_page.getJoystickX()+control_page.getJoystickY())*160);
+		break;
+	case 1:
+		servo2.move_time_and_wait_for_sync(-fmap(control_page.getJoystickX(),-1,1,-1000,4500), 0);
+		servo3.move_time_and_wait_for_sync(fmap(control_page.getJoystickX(),-1,1,-1000,4500), 0);
+		servo.move_time_and_wait_for_sync(fmap(control_page.getJoystickY(),-1,1,-4500,4500), 0);
+		servoBus.move_sync_start();
+		break;
+	case 2:
+		servo2.move_time_and_wait_for_sync(0, 0);
+		servo3.move_time_and_wait_for_sync(fmap(control_page.getJoystickX(),-1,1,-1000,4500), 0);
+		servo.move_time_and_wait_for_sync(fmap(control_page.getJoystickY(),-1,1,-4500,4500), 0);
+		servoBus.move_sync_start();
+		break;
 
-	//servo2.move_time_and_wait_for_sync(angle, 0);
-	servo3.move_time_and_wait_for_sync((control_page.getSliderValue(0)*5500)-1000, 0);
-	//servo.move_time_and_wait_for_sync(angle, 0);
-	servoBus.move_sync_start();
+	}
+
+
+
+
 }
 
 /*
