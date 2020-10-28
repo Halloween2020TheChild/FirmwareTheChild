@@ -14,6 +14,18 @@ LX16AServo servo(&servoBus, 1);
 LX16AServo servo2(&servoBus, 2);
 LX16AServo servo3(&servoBus, 3);
 
+enum walkState {
+	stopped = 0,
+	stopping = 1,
+	leftFootMove = 2,
+	waitingForLeftToFinish = 3,
+	rightFootMove = 4,
+	waitingForRightToFinish = 5
+};
+
+enum walkState state = stopped;
+float rightDelt = 0;
+float leftDelt = 0;
 
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classMotor.html
 Motor left_motor;
@@ -22,23 +34,21 @@ Motor right_motor;
 
 WebPage control_page;
 
-
 WifiManager manager;
-
 
 Timer dashboardUpdateTimer;  // times when the dashboard should update
 
 float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
-	if(x>in_max)
+	if (x > in_max)
 		return out_max;
-	if(x<in_min)
+	if (x < in_min)
 		return out_min;
 
 	float divisor = (in_max - in_min);
-    if(divisor == 0){
-        return -1; //AVR returns -1, SAM returns 0
-    }
-    return (x - in_min) * (out_max - out_min) / divisor + out_min;
+	if (divisor == 0) {
+		return -1; //AVR returns -1, SAM returns 0
+	}
+	return (x - in_min) * (out_max - out_min) / divisor + out_min;
 }
 /*
  * This is the standard setup function that is called when the ESP32 is rebooted
@@ -47,7 +57,7 @@ float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
  * sets up some web page buttons, resets some timers, and sets the initial state
  * the robot should start in
  */
-int inc=0;
+int inc = 0;
 
 void setup() {
 	servoBus.begin(&Serial2, 17, // on TX pin 10
@@ -69,8 +79,10 @@ void setup() {
 	ESP32PWM::allocateTimer(1); // Used by servos
 	control_page.initalize();
 	// pin definitions https://wpiroboticsengineering.github.io/RBE1001Lib/RBE1001Lib_8h.html#define-members
-	right_motor.attach(MOTOR_RIGHT_PWM, MOTOR_RIGHT_DIR, MOTOR_RIGHT_ENCA, MOTOR_RIGHT_ENCB);
-	left_motor.attach(MOTOR_LEFT_PWM, MOTOR_LEFT_DIR, MOTOR_LEFT_ENCA, MOTOR_LEFT_ENCB);
+	right_motor.attach(MOTOR_RIGHT_PWM, MOTOR_RIGHT_DIR, MOTOR_RIGHT_ENCA,
+	MOTOR_RIGHT_ENCB);
+	left_motor.attach(MOTOR_LEFT_PWM, MOTOR_LEFT_DIR, MOTOR_LEFT_ENCA,
+	MOTOR_LEFT_ENCB);
 
 	dashboardUpdateTimer.reset(); // reset the dashbaord refresh timer
 	Serial.println("servo.readLimits()");
@@ -82,7 +94,6 @@ void setup() {
 	servo2.move_time_and_wait_for_sync(0, 0);
 	servo3.move_time_and_wait_for_sync(0, 0);
 	servo.move_time_and_wait_for_sync(0, 0);
-
 
 }
 
@@ -96,30 +107,82 @@ void setup() {
  */
 void runStateMachine() {
 
-	int sliderMode = (int)(control_page.getSliderValue(0)*3.0);
+	int sliderMode = (int) (control_page.getSliderValue(0) * 3.0);
+	float x = control_page.getJoystickX();
+	float y = control_page.getJoystickY();
+	float distance = 100;
+	float time = 600;
 
-	switch(sliderMode){
+	switch (sliderMode) {
 	case 0:
-		left_motor.setSpeed((control_page.getJoystickX()-control_page.getJoystickY())*160);
-		right_motor.setSpeed((control_page.getJoystickX()+control_page.getJoystickY())*160);
+		if (fabs(x) < 0.01 && fabs(y) < 0.01) {
+			state = stopping;
+		}
+		leftDelt = ((x - y) * distance);
+		rightDelt = ((x + y) * distance);
+		switch (state) {
+		case stopped:
+			if (fabs(x) > 0.01 || fabs(y) > 0.01) {
+				state = leftFootMove;
+			}
+			break;
+		case stopping:
+			left_motor.setSpeed(0);
+			right_motor.setSpeed(0);
+			servo2.move_time_and_wait_for_sync(0, time*2/3);
+			servo3.move_time_and_wait_for_sync(0, time*2/3);
+			servo.move_time_and_wait_for_sync(0, time*2/3);
+			servoBus.move_sync_start();
+			state = stopped;
+			break;
+		case leftFootMove:
+			left_motor.setSetpointWithBezierInterpolation(
+					left_motor.getCurrentDegrees() + leftDelt, time, 0.2, 1);
+			servo2.move_time_and_wait_for_sync(0,time*2/3);
+			servo3.move_time_and_wait_for_sync(0, time*2/3);
+			servo.move_time_and_wait_for_sync(1500*x, time*2/3);
+			servoBus.move_sync_start();
+			state = waitingForLeftToFinish;
+			break;
+		case waitingForLeftToFinish:
+			if (left_motor.getInterpolationUnitIncrement() >= 1)
+				state = rightFootMove;
+			break;
+		case rightFootMove:
+			right_motor.setSetpointWithBezierInterpolation(
+					right_motor.getCurrentDegrees() + rightDelt, time, 0.2, 1);
+			servo2.move_time_and_wait_for_sync(1000, time*2/3);
+			servo3.move_time_and_wait_for_sync(-1000, time*2/3);
+			servo.move_time_and_wait_for_sync(-1500*x, time*2/3);
+			servoBus.move_sync_start();
+			state = waitingForRightToFinish;
+			break;
+		case waitingForRightToFinish:
+			if (right_motor.getInterpolationUnitIncrement() >= 1)
+				state = leftFootMove;
+			break;
+		}
+
 		break;
 	case 1:
-		servo2.move_time_and_wait_for_sync(-fmap(control_page.getJoystickX(),-1,1,-1000,4500), 0);
-		servo3.move_time_and_wait_for_sync(fmap(control_page.getJoystickX(),-1,1,-1000,4500), 0);
-		servo.move_time_and_wait_for_sync(fmap(control_page.getJoystickY(),-1,1,-4500,4500), 0);
+		servo2.move_time_and_wait_for_sync(
+				-fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), 0);
+		servo3.move_time_and_wait_for_sync(
+				fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), 0);
+		servo.move_time_and_wait_for_sync(
+				fmap(control_page.getJoystickY(), -1, 1, -4500, 4500), 0);
 		servoBus.move_sync_start();
 		break;
 	case 2:
 		servo2.move_time_and_wait_for_sync(0, 0);
-		servo3.move_time_and_wait_for_sync(fmap(control_page.getJoystickX(),-1,1,-1000,4500), 0);
-		servo.move_time_and_wait_for_sync(fmap(control_page.getJoystickY(),-1,1,-4500,4500), 0);
+		servo3.move_time_and_wait_for_sync(
+				fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), 0);
+		servo.move_time_and_wait_for_sync(
+				fmap(control_page.getJoystickY(), -1, 1, -4500, 4500), 0);
 		servoBus.move_sync_start();
 		break;
 
 	}
-
-
-
 
 }
 
@@ -130,25 +193,30 @@ void runStateMachine() {
  * "setValue" function with a name and a value.
  */
 
-uint32_t packet_old=0;
+uint32_t packet_old = 0;
 void updateDashboard() {
 	// This writes values to the dashboard area at the bottom of the web page
 	if (dashboardUpdateTimer.getMS() > 100) {
-
+		control_page.setValue("walking state", state);
+		control_page.setValue("walking right", rightDelt);
+		control_page.setValue("walking left", leftDelt);
 		control_page.setValue("packets from Web to ESP",
-						control_page.rxPacketCount);
+				control_page.rxPacketCount);
 		control_page.setValue("packets to Web from ESP",
-						control_page.txPacketCount);
-		control_page.setValue("slider",
-						control_page.getSliderValue(0)*100);
+				control_page.txPacketCount);
+		control_page.setValue("slider", control_page.getSliderValue(0) * 100);
 
-		control_page.setValue("Left Encoder Degrees",		left_motor.getCurrentDegrees());
-		control_page.setValue("Left Effort", 	left_motor.getEffort());
-		control_page.setValue("Left Encoder Degrees/sec", 	left_motor.getDegreesPerSecond());
+		control_page.setValue("Left Encoder Degrees",
+				left_motor.getCurrentDegrees());
+		control_page.setValue("Left Effort", left_motor.getEffort());
+		control_page.setValue("Left Encoder Degrees/sec",
+				left_motor.getDegreesPerSecond());
 
-		control_page.setValue("Right Encoder Degrees",right_motor.getCurrentDegrees());
+		control_page.setValue("Right Encoder Degrees",
+				right_motor.getCurrentDegrees());
 		control_page.setValue("Right  Effort", right_motor.getEffort());
-		control_page.setValue("Right Encoder Degrees/sec",right_motor.getDegreesPerSecond());
+		control_page.setValue("Right Encoder Degrees/sec",
+				right_motor.getDegreesPerSecond());
 
 		dashboardUpdateTimer.reset();
 	}
@@ -164,6 +232,6 @@ void loop() {
 
 	manager.loop();
 	runStateMachine();  // do a pass through the state machine
-	if(manager.getState() == Connected)// only update if WiFi is up
+	if (manager.getState() == Connected)  // only update if WiFi is up
 		updateDashboard();  // update the dashboard values
 }
