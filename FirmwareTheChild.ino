@@ -72,7 +72,8 @@ void setup() {
 	servo2.disable();
 	servo3.disable();
 
-	manager.setup();
+	manager.setupAP();
+	//manager.setup();
 	while (manager.getState() != Connected) {
 		manager.loop();
 		delay(1);
@@ -113,8 +114,9 @@ void runStateMachine() {
 	float x = control_page.getJoystickX();
 	float y = control_page.getJoystickY();
 	float distance = 100;
-	float time = 800;
+	float time = 600;
 	float RCTIme= 200;
+	int walkingTiltAngle =750;
 	switch (sliderMode) {
 	case 0:
 		if (fabs(x) < 0.01 && fabs(y) < 0.01 && state!=stopped) {
@@ -142,15 +144,15 @@ void runStateMachine() {
 					left_motor.getCurrentDegrees() + leftDelt, time, 0.2, 1);
 			servo2.move_time_and_wait_for_sync(0, time/3);
 			servo3.move_time_and_wait_for_sync(0, time/3);
-			servo.move_time_and_wait_for_sync(1500*x, time*2/3);
+			servo.move_time_and_wait_for_sync(1500*(x>0?1:-1), time*2/3);
 			servoBus.move_sync_start();
 			state = waitForLeftHalfCycle;
 			break;
 		case waitForLeftHalfCycle:
 			if (left_motor.getInterpolationUnitIncrement() >= 0.5){
 				state = waitingForLeftToFinish;
-				servo2.move_time_and_wait_for_sync(1000, time/3);
-				servo3.move_time_and_wait_for_sync(-1000, time/3);
+				servo2.move_time_and_wait_for_sync(walkingTiltAngle, time/3);
+				servo3.move_time_and_wait_for_sync(-walkingTiltAngle, time/3);
 				//servo.move_time_and_wait_for_sync(0, time/3);
 				servoBus.move_sync_start();
 			}
@@ -164,15 +166,15 @@ void runStateMachine() {
 					right_motor.getCurrentDegrees() + rightDelt, time, 0.2, 1);
 			servo2.move_time_and_wait_for_sync(0, time/3);
 			servo3.move_time_and_wait_for_sync(0, time/3);
-			servo.move_time_and_wait_for_sync(-1500*x, time*2/3);
+			servo.move_time_and_wait_for_sync(-1500*(x>0?1:-1), time*2/3);
 			servoBus.move_sync_start();
 			state = waitForRightHalfCycle;
 			break;
 		case waitForRightHalfCycle:
 			if (right_motor.getInterpolationUnitIncrement() >= 0.5){
 				state = waitingForRightToFinish;
-				servo2.move_time_and_wait_for_sync(1000, time/3);
-				servo3.move_time_and_wait_for_sync(-1000, time/3);
+				servo2.move_time_and_wait_for_sync(walkingTiltAngle, time/3);
+				servo3.move_time_and_wait_for_sync(-walkingTiltAngle, time/3);
 				//servo.move_time_and_wait_for_sync(0, time/3);
 				servoBus.move_sync_start();
 			}
@@ -190,7 +192,7 @@ void runStateMachine() {
 			servo2.move_time_and_wait_for_sync(
 					-fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), RCTIme);
 			servo3.move_time_and_wait_for_sync(
-					fmap(control_page.getJoystickX(), -1, 1, -5000, 4500), RCTIme);
+					fmap(control_page.getJoystickX(), -1, 1, -3000, 4500), RCTIme);
 			servo.move_time_and_wait_for_sync(
 					fmap(control_page.getJoystickY(), -1, 1, -4500, 4500), RCTIme);
 			servoBus.move_sync_start();
