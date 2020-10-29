@@ -28,7 +28,7 @@ enum walkState {
 enum walkState state = stopped;
 float rightDelt = 0;
 float leftDelt = 0;
-
+long timeOfLastRCControl =0;
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classMotor.html
 Motor left_motor;
 Motor right_motor;
@@ -92,7 +92,7 @@ void setup() {
 	Serial.println("servo2.readLimits()");
 	servo2.calibrate(0, -1000, 4500);
 	Serial.println("servo3.readLimits()");
-	servo3.calibrate(0, -1000, 4000);
+	servo3.calibrate(0, -5000, 4000);
 	servo2.move_time_and_wait_for_sync(0, 0);
 	servo3.move_time_and_wait_for_sync(0, 0);
 	servo.move_time_and_wait_for_sync(0, 0);
@@ -114,7 +114,7 @@ void runStateMachine() {
 	float y = control_page.getJoystickY();
 	float distance = 100;
 	float time = 800;
-
+	float RCTIme= 200;
 	switch (sliderMode) {
 	case 0:
 		if (fabs(x) < 0.01 && fabs(y) < 0.01 && state!=stopped) {
@@ -184,22 +184,17 @@ void runStateMachine() {
 		}
 
 		break;
-	case 1:
-		servo2.move_time_and_wait_for_sync(
-				-fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), 0);
-		servo3.move_time_and_wait_for_sync(
-				fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), 0);
-		servo.move_time_and_wait_for_sync(
-				fmap(control_page.getJoystickY(), -1, 1, -4500, 4500), 0);
-		servoBus.move_sync_start();
-		break;
-	case 2:
-		servo2.move_time_and_wait_for_sync(0, 0);
-		servo3.move_time_and_wait_for_sync(
-				fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), 0);
-		servo.move_time_and_wait_for_sync(
-				fmap(control_page.getJoystickY(), -1, 1, -4500, 4500), 0);
-		servoBus.move_sync_start();
+	default:
+		if(millis()-timeOfLastRCControl>RCTIme){
+			timeOfLastRCControl=millis();
+			servo2.move_time_and_wait_for_sync(
+					-fmap(control_page.getJoystickX(), -1, 1, -1000, 4500), RCTIme);
+			servo3.move_time_and_wait_for_sync(
+					fmap(control_page.getJoystickX(), -1, 1, -5000, 4500), RCTIme);
+			servo.move_time_and_wait_for_sync(
+					fmap(control_page.getJoystickY(), -1, 1, -4500, 4500), RCTIme);
+			servoBus.move_sync_start();
+		}
 		break;
 
 	}
