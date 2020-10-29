@@ -117,7 +117,7 @@ void runStateMachine() {
 
 	switch (sliderMode) {
 	case 0:
-		if (fabs(x) < 0.01 && fabs(y) < 0.01) {
+		if (fabs(x) < 0.01 && fabs(y) < 0.01 && state!=stopped) {
 			state = stopping;
 		}
 		leftDelt = ((x - y) * distance);
@@ -142,7 +142,7 @@ void runStateMachine() {
 					left_motor.getCurrentDegrees() + leftDelt, time, 0.2, 1);
 			servo2.move_time_and_wait_for_sync(0, time/3);
 			servo3.move_time_and_wait_for_sync(0, time/3);
-			servo.move_time_and_wait_for_sync(1500*x, time/3);
+			servo.move_time_and_wait_for_sync(1500*x, time*2/3);
 			servoBus.move_sync_start();
 			state = waitForLeftHalfCycle;
 			break;
@@ -164,7 +164,7 @@ void runStateMachine() {
 					right_motor.getCurrentDegrees() + rightDelt, time, 0.2, 1);
 			servo2.move_time_and_wait_for_sync(0, time/3);
 			servo3.move_time_and_wait_for_sync(0, time/3);
-			servo.move_time_and_wait_for_sync(-1500*x, time/3);
+			servo.move_time_and_wait_for_sync(-1500*x, time*2/3);
 			servoBus.move_sync_start();
 			state = waitForRightHalfCycle;
 			break;
