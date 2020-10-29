@@ -20,7 +20,9 @@ enum walkState {
 	leftFootMove = 2,
 	waitingForLeftToFinish = 3,
 	rightFootMove = 4,
-	waitingForRightToFinish = 5
+	waitingForRightToFinish = 5,
+	waitForLeftHalfCycle,
+	waitForRightHalfCycle
 };
 
 enum walkState state = stopped;
@@ -111,7 +113,7 @@ void runStateMachine() {
 	float x = control_page.getJoystickX();
 	float y = control_page.getJoystickY();
 	float distance = 100;
-	float time = 600;
+	float time = 800;
 
 	switch (sliderMode) {
 	case 0:
@@ -138,11 +140,20 @@ void runStateMachine() {
 		case leftFootMove:
 			left_motor.setSetpointWithBezierInterpolation(
 					left_motor.getCurrentDegrees() + leftDelt, time, 0.2, 1);
-			servo2.move_time_and_wait_for_sync(0,time*2/3);
-			servo3.move_time_and_wait_for_sync(0, time*2/3);
-			servo.move_time_and_wait_for_sync(1500*x, time*2/3);
+			servo2.move_time_and_wait_for_sync(0, time/3);
+			servo3.move_time_and_wait_for_sync(0, time/3);
+			servo.move_time_and_wait_for_sync(1500*x, time/3);
 			servoBus.move_sync_start();
-			state = waitingForLeftToFinish;
+			state = waitForLeftHalfCycle;
+			break;
+		case waitForLeftHalfCycle:
+			if (left_motor.getInterpolationUnitIncrement() >= 0.5){
+				state = waitingForLeftToFinish;
+				servo2.move_time_and_wait_for_sync(1000, time/3);
+				servo3.move_time_and_wait_for_sync(-1000, time/3);
+				//servo.move_time_and_wait_for_sync(0, time/3);
+				servoBus.move_sync_start();
+			}
 			break;
 		case waitingForLeftToFinish:
 			if (left_motor.getInterpolationUnitIncrement() >= 1)
@@ -151,11 +162,20 @@ void runStateMachine() {
 		case rightFootMove:
 			right_motor.setSetpointWithBezierInterpolation(
 					right_motor.getCurrentDegrees() + rightDelt, time, 0.2, 1);
-			servo2.move_time_and_wait_for_sync(1000, time*2/3);
-			servo3.move_time_and_wait_for_sync(-1000, time*2/3);
-			servo.move_time_and_wait_for_sync(-1500*x, time*2/3);
+			servo2.move_time_and_wait_for_sync(0, time/3);
+			servo3.move_time_and_wait_for_sync(0, time/3);
+			servo.move_time_and_wait_for_sync(-1500*x, time/3);
 			servoBus.move_sync_start();
-			state = waitingForRightToFinish;
+			state = waitForRightHalfCycle;
+			break;
+		case waitForRightHalfCycle:
+			if (right_motor.getInterpolationUnitIncrement() >= 0.5){
+				state = waitingForRightToFinish;
+				servo2.move_time_and_wait_for_sync(1000, time/3);
+				servo3.move_time_and_wait_for_sync(-1000, time/3);
+				//servo.move_time_and_wait_for_sync(0, time/3);
+				servoBus.move_sync_start();
+			}
 			break;
 		case waitingForRightToFinish:
 			if (right_motor.getInterpolationUnitIncrement() >= 1)
