@@ -62,8 +62,7 @@ float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
 int inc = 0;
 
 void setup() {
-	servoBus.begin(&Serial2, 17, // on TX pin 10
-			19); // use pin 2 as the TX flag for buffer
+	servoBus.beginOnePinMode(&Serial2, SERVO_PIN); // use pin 2 as the TX flag for buffer
 	Serial.begin(115200);
 	servoBus.retry = 1; // enforce synchronous real time
 	//servoBus.debug(true);
