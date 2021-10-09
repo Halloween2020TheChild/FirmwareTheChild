@@ -30,16 +30,15 @@ float rightDelt = 0;
 float leftDelt = 0;
 long timeOfLastRCControl =0;
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classMotor.html
-Motor left_motor;
-Motor right_motor;
+LeftMotor left_motor;
+RightMotor right_motor;
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classRangefinder.html
 
 WebPage control_page;
 
 WifiManager manager;
 
-Timer dashboardUpdateTimer;  // times when the dashboard should update
-
+long timeOfLastEvent=0;
 float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
 	if (x > in_max)
 		return out_max;
@@ -62,7 +61,7 @@ float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
 int inc = 0;
 
 void setup() {
-	servoBus.beginOnePinMode(&Serial2, SERVO_PIN); // use pin 2 as the TX flag for buffer
+	servoBus.beginOnePinMode(&Serial2, 21); // use pin 2 as the TX flag for buffer
 	Serial.begin(115200);
 	servoBus.retry = 1; // enforce synchronous real time
 	//servoBus.debug(true);
@@ -77,16 +76,11 @@ void setup() {
 		manager.loop();
 		delay(1);
 	}
-	Motor::allocateTimer(0); // used by the DC Motors
-	ESP32PWM::allocateTimer(1); // Used by servos
 	control_page.initalize();
 	// pin definitions https://wpiroboticsengineering.github.io/RBE1001Lib/RBE1001Lib_8h.html#define-members
-	right_motor.attach(MOTOR_RIGHT_PWM, MOTOR_RIGHT_DIR, MOTOR_RIGHT_ENCA,
-	MOTOR_RIGHT_ENCB);
-	left_motor.attach(MOTOR_LEFT_PWM, MOTOR_LEFT_DIR, MOTOR_LEFT_ENCA,
-	MOTOR_LEFT_ENCB);
+	right_motor.attach();
+	left_motor.attach();
 
-	dashboardUpdateTimer.reset(); // reset the dashbaord refresh timer
 	Serial.println("servo.readLimits()");
 	servo.calibrate(0, -4500, 4500);
 	Serial.println("servo2.readLimits()");
@@ -212,7 +206,7 @@ void runStateMachine() {
 uint32_t packet_old = 0;
 void updateDashboard() {
 	// This writes values to the dashboard area at the bottom of the web page
-	if (dashboardUpdateTimer.getMS() > 100) {
+	if ((millis()- timeOfLastEvent) > 100) {
 		control_page.setValue("walking state", state);
 		control_page.setValue("walking right", rightDelt);
 		control_page.setValue("walking left", leftDelt);
@@ -234,7 +228,7 @@ void updateDashboard() {
 		control_page.setValue("Right Encoder Degrees/sec",
 				right_motor.getDegreesPerSecond());
 
-		dashboardUpdateTimer.reset();
+		timeOfLastEvent=millis();
 	}
 }
 
