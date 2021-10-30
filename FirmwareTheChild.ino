@@ -106,8 +106,8 @@ void runStateMachine() {
 	int sliderMode = (int) (control_page.getSliderValue(0) * 3.0);
 	float x = control_page.getJoystickX();
 	float y = control_page.getJoystickY();
-	float distance = 100;
-	float time = 600;
+	float distance = 130;
+	float time = 300+(300*(1-abs(x)));
 	float RCTIme= 200;
 	int walkingTiltAngle =750;
 	switch (sliderMode) {
