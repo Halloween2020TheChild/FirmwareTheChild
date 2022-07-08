@@ -61,7 +61,7 @@ float fmap(float x, float in_min, float in_max, float out_min, float out_max) {
 int inc = 0;
 
 void setup() {
-	servoBus.beginOnePinMode(&Serial2, 21); // use pin 2 as the TX flag for buffer
+	servoBus.beginOnePinMode(&Serial2, 33); // use pin 2 as the TX flag for buffer
 	Serial.begin(115200);
 	servoBus.retry = 1; // enforce synchronous real time
 	//servoBus.debug(true);
@@ -70,26 +70,28 @@ void setup() {
 	servo2.disable();
 	servo3.disable();
 
-	manager.setupAP();
-	//manager.setup();
+
+	// pin definitions https://wpiroboticsengineering.github.io/RBE1001Lib/RBE1001Lib_8h.html#define-members
+	right_motor.attach();
+	left_motor.attach();
+
+	Serial.println("Calibrate Motor 0");
+	servo.calibrate(0, -4500, 4500);
+	Serial.println("Calibrate Motor 1");
+	servo2.calibrate(0, -1000, 4500);
+	Serial.println("Calibrate Motor 2");
+	servo3.calibrate(0, -5000, 4000);
+	servo2.move_time_and_wait_for_sync(0, 0);
+	servo3.move_time_and_wait_for_sync(0, 0);
+	servo.move_time_and_wait_for_sync(0, 0);
+
+	//manager.setupAP();
+	manager.setup();
 	while (manager.getState() != Connected) {
 		manager.loop();
 		delay(1);
 	}
 	control_page.initalize();
-	// pin definitions https://wpiroboticsengineering.github.io/RBE1001Lib/RBE1001Lib_8h.html#define-members
-	right_motor.attach();
-	left_motor.attach();
-
-	Serial.println("servo.readLimits()");
-	servo.calibrate(0, -4500, 4500);
-	Serial.println("servo2.readLimits()");
-	servo2.calibrate(0, -1000, 4500);
-	Serial.println("servo3.readLimits()");
-	servo3.calibrate(0, -5000, 4000);
-	servo2.move_time_and_wait_for_sync(0, 0);
-	servo3.move_time_and_wait_for_sync(0, 0);
-	servo.move_time_and_wait_for_sync(0, 0);
 
 }
 
