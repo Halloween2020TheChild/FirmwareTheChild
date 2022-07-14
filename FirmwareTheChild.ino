@@ -30,8 +30,8 @@ float rightDelt = 0;
 float leftDelt = 0;
 long timeOfLastRCControl =0;
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classMotor.html
-LeftMotor left_motor;
-RightMotor right_motor;
+Motor left_motor(MOTOR_LEFT_PWM, MOTOR_LEFT_DIR, MOTOR_LEFT_ENCA, MOTOR_LEFT_ENCB);
+Motor right_motor(MOTOR_RIGHT_PWM, MOTOR_RIGHT_DIR, MOTOR_RIGHT_ENCA, SPI_MOSI);
 // https://wpiroboticsengineering.github.io/RBE1001Lib/classRangefinder.html
 
 WebPage control_page;
@@ -85,8 +85,8 @@ void setup() {
 	servo3.move_time_and_wait_for_sync(0, 0);
 	servo.move_time_and_wait_for_sync(0, 0);
 
-	//manager.setupAP();
-	manager.setup();
+	manager.setupAP();
+	//manager.setup();
 	while (manager.getState() != Connected) {
 		manager.loop();
 		delay(1);
@@ -109,7 +109,7 @@ void runStateMachine() {
 	float x = control_page.getJoystickX();
 	float y = control_page.getJoystickY();
 	float distance = 130;
-	float time = 300+(300*(1-abs(x)));
+	float time = 450+(300*(1-abs(x)));
 	float RCTIme= 200;
 	int walkingTiltAngle =750;
 	switch (sliderMode) {
